@@ -109,7 +109,7 @@ def generate_random_data(num_rows=10):
     return data
 
 
-def get_next_file_number(base_name="Книга1", extension="xlsx"):
+def get_next_file_number(base_name="test1", extension="xlsx"):
     """Определяет следующий номер файла для текущей даты"""
     today = datetime.now().strftime("%Y-%m-%d")
     pattern = f"{base_name}_{today}_"
@@ -145,7 +145,7 @@ def create_data_files(num_rows=10, upload_enabled=True):
     df.columns = ['time', 'ulid', 'symbol', 'state', 'tenor', 'valueDateNear', 
                   'globalTradable', 'globalIndicative', 'rateId', 'tier', 'priceLevels']
     
-    excel_filename = f"Книга1_{today}_{file_number}.xlsx"
+    excel_filename = f"test1_{today}_{file_number}.xlsx"
     parquet_filename = f"database_{today}_{file_number}.parquet"
     
     # Сохраняем Excel
