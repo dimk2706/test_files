@@ -150,9 +150,9 @@ def create_data_files(num_rows=10, upload_enabled=True):
     
     # Сохраняем Excel
     with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Лист1', index=False)
+        df.to_excel(writer, sheet_name='sheet1', index=False)
         workbook = writer.book
-        worksheet = writer.sheets['Лист1']
+        worksheet = writer.sheets['sheet1']
         column_widths = {
             'A': 20, 'B': 30, 'C': 12, 'D': 8, 'E': 8, 'F': 20,
             'G': 15, 'H': 18, 'I': 15, 'J': 10, 'K': 50
