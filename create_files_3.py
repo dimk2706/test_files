@@ -9,7 +9,8 @@ import asyncio
 from dotenv import load_dotenv
 
 # Асинхронный S3-клиент
-import aiobotocore
+import os
+from aiobotocore.session import AioSession
 from aiobotocore.config import AioConfig
 
 # Загружаем .env
@@ -36,7 +37,7 @@ for name, value in required_vars.items():
 
 
 async def upload_to_cloud_async(filepath: str):
-    """Асинхронная загрузка файла в S3-совместимое облако с aiobotocore"""
+    """Асинхронная загрузка файла в S3-совместимое облако с aiobotocore (v2+)"""
     object_name = os.path.basename(filepath)
 
     # Определяем Content-Type
@@ -47,7 +48,8 @@ async def upload_to_cloud_async(filepath: str):
     else:
         content_type = 'application/octet-stream'
 
-    session = aiobotocore.get_session()
+    # Создаём асинхронную сессию
+    session = AioSession()
     config = AioConfig(s3={'addressing_style': 'virtual'})
 
     async with session.create_client(
@@ -63,12 +65,12 @@ async def upload_to_cloud_async(filepath: str):
                 await client.put_object(
                     Bucket=OBS_BUCKET,
                     Key=object_name,
-                    Body=f,
+                    Body=f.read(),  # Читаем всё содержимое
                     ContentType=content_type
                 )
-            print(f"✅ Асинхронно загружено: {object_name} (Content-Type: {content_type})")
+            print(f"✅ Загружено: {object_name}")
         except Exception as e:
-            print(f"❌ Ошибка при асинхронной загрузке {filepath}: {e}")
+            print(f"❌ Ошибка загрузки {filepath}: {e}")
 
 
 # --- Остальной код (без изменений, кроме вызова асинхронной загрузки) ---
