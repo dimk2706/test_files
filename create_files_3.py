@@ -61,11 +61,12 @@ async def upload_to_cloud_async(filepath: str):
         config=config
     ) as client:
         try:
+            # ИСПРАВЛЕНИЕ: Используем асинхронную загрузку файла
             with open(filepath, 'rb') as f:
                 await client.put_object(
                     Bucket=OBS_BUCKET,
                     Key=object_name,
-                    Body=f.read(),  # Читаем всё содержимое
+                    Body=f,  # Передаем файловый объект, а не прочитанные данные
                     ContentType=content_type
                 )
             print(f"✅ Загружено: {object_name}")
