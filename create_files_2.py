@@ -9,7 +9,7 @@ import logfire
 import pandas as pd
 from aiobotocore.client import AioBaseClient
 from botocore.client import Config
-from environs import env
+from environs import Env
 from sqlalchemy.engine import ScalarResult
 
 env = Env()
