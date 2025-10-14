@@ -33,12 +33,15 @@ for name, value in required_vars.items():
         raise EnvironmentError(f"Переменная окружения {name} не задана в .env файле")
 
 def upload_to_cloud(filepath):
-    """
-    Загружает файл в S3-совместимое облако.
-    
-    :param filepath: Путь к локальному файлу
-    """
     object_name = os.path.basename(filepath)
+    
+    # Определяем Content-Type
+    if filepath.lower().endswith('.xlsx'):
+        content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    elif filepath.lower().endswith('.parquet'):
+        content_type = 'application/octet-stream'
+    else:
+        content_type = 'application/octet-stream'
     
     s3_params = {
         "service_name": "s3",
@@ -51,10 +54,15 @@ def upload_to_cloud(filepath):
 
     try:
         s3_client = boto3.client(**s3_params)
-        s3_client.upload_file(filepath, OBS_BUCKET, object_name)
-        print(f"✅ Файл '{filepath}' успешно загружен в облако как '{object_name}'")
+        s3_client.upload_file(
+            Filename=filepath,
+            Bucket=OBS_BUCKET,
+            Key=object_name,
+            ExtraArgs={'ContentType': content_type}
+        )
+        print(f"✅ Загружено: {object_name} (Content-Type: {content_type})")
     except Exception as e:
-        print(f"❌ Ошибка при загрузке файла '{filepath}' в облако: {e}")
+        print(f"❌ Ошибка загрузки {filepath}: {e}")
 
 
 def generate_random_data(num_rows=10):
