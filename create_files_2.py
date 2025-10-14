@@ -12,6 +12,8 @@ from botocore.client import Config
 from environs import env
 from sqlalchemy.engine import ScalarResult
 
+env = Env()
+env.read_env() 
 
 
 params = {
