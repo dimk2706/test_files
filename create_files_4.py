@@ -7,13 +7,12 @@ import random
 import os
 import asyncio
 from dotenv import load_dotenv
-import boto3
-from botocore.config import Config
 
 # Асинхронный S3-клиент
-import os
-from aiobotocore.session import AioSession
-from aiobotocore.config import AioConfig
+import boto3
+from botocore.config import Config
+from openpyxl import Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Загружаем .env
 load_dotenv()
@@ -38,46 +37,42 @@ for name, value in required_vars.items():
         raise EnvironmentError(f"Переменная окружения {name} не задана")
 
 
-async def upload_to_cloud_async(filepath: str):
-    """Асинхронная загрузка файла в S3-совместимое облако с aiobotocore (v2+)"""
-    object_name = os.path.basename(filepath)
+def create_excel_alternative(df, filename):
+    """Создает Excel файл напрямую через openpyxl"""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+    
+    # Записываем заголовки
+    headers = list(df.columns)
+    ws.append(headers)
+    
+    # Записываем данные
+    for _, row in df.iterrows():
+        ws.append(row.tolist())
+    
+    # Настраиваем ширину колонок
+    widths = {
+        'A': 20,  # time
+        'B': 30,  # ulid
+        'C': 12,  # symbol
+        'D': 8,   # state
+        'E': 8,   # tenor
+        'F': 20,  # valueDateNear
+        'G': 15,  # globalTradable
+        'H': 18,  # globalIndicative
+        'I': 15,  # rateId
+        'J': 10,  # tier
+        'K': 50   # priceLevels
+    }
+    
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+    
+    # Сохраняем файл
+    wb.save(filename)
+    print(f"✅ Excel создан через openpyxl: {filename}")
 
-    # Определяем Content-Type
-    if filepath.lower().endswith('.xlsx'):
-        content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    elif filepath.lower().endswith('.parquet'):
-        content_type = 'application/octet-stream'
-    else:
-        content_type = 'application/octet-stream'
-
-    # Создаём асинхронную сессию
-    session = AioSession()
-    config = AioConfig(s3={'addressing_style': 'virtual'})
-
-    async with session.create_client(
-        's3',
-        region_name=OBS_REGION,
-        endpoint_url=OBS_ENDPOINT,
-        aws_access_key_id=OBS_ACCESS_KEY,
-        aws_secret_access_key=OBS_SECRET_KEY,
-        config=config
-    ) as client:
-        try:
-            # ИСПРАВЛЕНИЕ: Используем асинхронную загрузку файла
-            with open(filepath, 'rb') as f:
-                await client.put_object(
-                    Bucket=OBS_BUCKET,
-                    Key=object_name,
-                    Body=f,  # Передаем файловый объект, а не прочитанные данные
-                    ContentType=content_type
-                )
-            print(f"✅ Загружено: {object_name}")
-        except Exception as e:
-            print(f"❌ Ошибка загрузки {filepath}: {e}")
-
-
-import boto3
-from botocore.config import Config
 
 def upload_to_cloud_sync(filepath: str):
     """Синхронная загрузка файла в S3-совместимое облако"""
@@ -105,21 +100,20 @@ def upload_to_cloud_sync(filepath: str):
     )
 
     try:
-        # Используем upload_file для надежной загрузки
-        client.upload_file(
-            filepath,
-            OBS_BUCKET,
-            object_name,
-            ExtraArgs={'ContentType': content_type}
-        )
+        # Загружаем файл
+        with open(filepath, 'rb') as file_obj:
+            client.put_object(
+                Bucket=OBS_BUCKET,
+                Key=object_name,
+                Body=file_obj,
+                ContentType=content_type
+            )
         print(f"✅ Загружено: {object_name}")
         return True
     except Exception as e:
         print(f"❌ Ошибка загрузки {filepath}: {e}")
         return False
 
-
-# --- Остальной код (без изменений, кроме вызова асинхронной загрузки) ---
 
 def generate_random_data(num_rows=10):
     symbols = ['CNY/RUB', 'USD/RUB', 'EUR/RUB', 'GBP/RUB', 'JPY/RUB']
@@ -193,18 +187,32 @@ def create_data_files_sync(num_rows=10):
     excel_filename = f"Book1_{today}_{file_number}.xlsx"
     parquet_filename = f"database_{today}_{file_number}.parquet"
     
-    # Excel
-    with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Sheet1', index=False)
-        ws = writer.sheets['Sheet1']
-        widths = {'A':20,'B':30,'C':12,'D':8,'E':8,'F':20,'G':15,'H':18,'I':15,'J':10,'K':50}
-        for col, w in widths.items():
-            ws.column_dimensions[col].width = w
-
-    # Parquet
-    df.to_parquet(parquet_filename, index=False, engine='pyarrow')
+    # Создаем Excel альтернативным способом
+    try:
+        create_excel_alternative(df, excel_filename)
+        
+        # Проверяем что файл создался и открывается
+        test_df = pd.read_excel(excel_filename, engine='openpyxl')
+        print(f"✅ Excel файл проверен: {len(test_df)} строк")
+        
+    except Exception as e:
+        print(f"❌ Ошибка создания Excel: {e}")
+        return None, None, None
     
-    print(f"✅ Созданы файлы: {excel_filename}, {parquet_filename}")
+    # Parquet
+    try:
+        df.to_parquet(parquet_filename, index=False, engine='pyarrow')
+        print(f"✅ Parquet файл создан: {parquet_filename}")
+    except Exception as e:
+        print(f"❌ Ошибка создания Parquet: {e}")
+        return None, None, None
+    
+    # Проверяем размеры файлов
+    excel_size = os.path.getsize(excel_filename)
+    parquet_size = os.path.getsize(parquet_filename)
+    print(f"📊 Размер Excel: {excel_size} байт")
+    print(f"📊 Размер Parquet: {parquet_size} байт")
+    
     return excel_filename, parquet_filename, df
 
 
@@ -230,24 +238,55 @@ def create_consolidated_database_sync():
     return cons_filename
 
 
-# --- Асинхронная основная функция ---
+def verify_local_excel(filepath: str) -> bool:
+    """Проверяет локальный Excel файл"""
+    try:
+        df = pd.read_excel(filepath, engine='openpyxl')
+        print(f"✅ Локальный файл {filepath} открывается: {len(df)} строк")
+        return True
+    except Exception as e:
+        print(f"❌ Локальный файл {filepath} не открывается: {e}")
+        return False
+
 
 async def main():
-    # 1. Генерация данных
-    excel_file, parquet_file, _ = create_data_files_sync(num_rows=150)
+    print("🚀 Начало процесса генерации и загрузки данных...")
     
-    # 2. Синхронная загрузка (более надежная для бинарных файлов)
+    # 1. Генерация данных
+    print("📊 Генерация данных...")
+    excel_file, parquet_file, df = create_data_files_sync(num_rows=150)
+    
+    if not excel_file or not parquet_file:
+        print("❌ Ошибка создания файлов")
+        return
+    
+    # 2. Проверяем локальные файлы
+    print("🔍 Проверка локальных файлов...")
+    if not verify_local_excel(excel_file):
+        print("❌ Локальный Excel файл поврежден, пропускаем загрузку")
+        return
+    
+    # 3. Загрузка в облако
+    print("☁️ Загрузка файлов в облако...")
     upload_to_cloud_sync(excel_file)
     upload_to_cloud_sync(parquet_file)
     
     print("\n" + "="*60)
     
-    # 3. Консолидация и загрузка
+    # 4. Консолидация и загрузка
+    print("🔄 Консолидация данных...")
     consolidated_file = create_consolidated_database_sync()
     if consolidated_file:
+        print("☁️ Загрузка консолидированной БД...")
         upload_to_cloud_sync(consolidated_file)
+    
+    print("\n✅ Процесс завершен!")
 
 
 # --- Запуск ---
 if __name__ == "__main__":
+    # Для асинхронного запуска
     asyncio.run(main())
+    
+    # Или для синхронного запуска (раскомментируйте если нужно):
+    # main()
