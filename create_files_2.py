@@ -194,7 +194,7 @@ def create_data_files(num_rows=10, upload_enabled=True):
             upload_to_cloud(excel_filename)
             upload_to_cloud(parquet_filename)
 
-        return excel_filename, parquet_filename, df
+    return excel_filename, parquet_filename, df
 
 
 def create_consolidated_database(upload_enabled=True):
