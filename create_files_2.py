@@ -65,41 +65,54 @@ def upload_to_cloud(filepath):
         print(f"❌ Ошибка загрузки {filepath}: {e}")
 
 
-def generate_random_data(num_rows=10):
+def generate_random_data(num_rows=10, symbol='CNY/RUB'):
     """Генерирует случайные данные в указанном формате"""
     
-    symbols = ['CNY/RUB', 'USD/RUB', 'EUR/RUB', 'GBP/RUB', 'JPY/RUB']
+    #symbols = ['CNY/RUB', 'USD/RUB', 'EUR/RUB', 'GBP/RUB', 'JPY/RUB']
     states = [0, 1]
-    tenors = ['TOM', 'SPOT', 'TOD', 'ON']
+    tenors = ['TOM', 'TOD',]
     tiers = ['TRADER1', 'TRADER2', 'TRADER3', 'TRADER4', 'TRADER5']
     
     data = []
-    
+
     for _ in range(num_rows):
         time = datetime.now() - timedelta(days=random.randint(0, 30), 
                                          hours=random.randint(0, 23),
                                          minutes=random.randint(0, 59))
         ulid = str(uuid.uuid4())[:24].upper()
-        symbol = random.choice(symbols)
+        #symbol = random.choice(symbols)
         state = random.choice(states)
         tenor = random.choice(tenors)
         value_date_near = time + timedelta(days=random.randint(1, 5))
-        
+
         global_tradable = random.choice([0, 1])
         global_indicative = 1 - global_tradable
-        
+
         rate_id = random.randint(10000000000, 99999999999)
         tier = random.choice(tiers)
-        
-        bid_price = random.randint(8000000, 12000000)
-        ask_price = bid_price + random.randint(100000, 500000)
+
+        if symbol == 'CNY/RUB':
+            bid_price = random.randint(10000000, 14000000)
+            ask_price = bid_price + random.randint(100000, 500000)
+        elif symbol == 'USD/RUB':
+            bid_price = random.randint(78000000, 110000000)
+            ask_price = bid_price + random.randint(100000, 500000)
+        elif symbol == 'EUR/RUB':
+            bid_price = random.randint(88000000, 120000000)
+            ask_price = bid_price + random.randint(100000, 500000)
+        elif symbol == 'INR/RUB':
+            bid_price = random.randint(800000, 1200000)
+            ask_price = bid_price + random.randint(100000, 500000)
+        else:
+            bid_price = random.randint(800000, 120000000)
+            ask_price = bid_price + random.randint(100000, 500000)
         size = random.randint(100000, 5000000)
-        
+
         price_levels = {
             'bid': {'price': str(bid_price), 'size': str(size)},
             'ask': {'price': str(ask_price), 'size': str(size)}
         }
-        
+
         data.append({
             'time': time.strftime('%Y-%m-%dT%H:%M:%SZ'),
             'ulid': ulid,
@@ -147,39 +160,41 @@ def create_data_files(num_rows=10, upload_enabled=True):
     
     file_number = get_next_file_number()
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    data = generate_random_data(num_rows)
-    df = pd.DataFrame(data)
-    df.columns = ['time', 'ulid', 'symbol', 'state', 'tenor', 'valueDateNear', 
-                  'globalTradable', 'globalIndicative', 'rateId', 'tier', 'priceLevels']
-    
-    excel_filename = f"test1_{today}_{file_number}.xlsx"
-    parquet_filename = f"database_{today}_{file_number}.parquet"
-    
-    # Сохраняем Excel
-    with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='sheet1', index=False)
-        workbook = writer.book
-        worksheet = writer.sheets['sheet1']
-        column_widths = {
-            'A': 20, 'B': 30, 'C': 12, 'D': 8, 'E': 8, 'F': 20,
-            'G': 15, 'H': 18, 'I': 15, 'J': 10, 'K': 50
-        }
-        for col, width in column_widths.items():
-            worksheet.column_dimensions[col].width = width
+    symbols = ['CNY/RUB', 'USD/RUB', 'EUR/RUB', 'GBP/RUB', 'JPY/RUB']
 
-    # Сохраняем Parquet
-    df.to_parquet(parquet_filename, index=False, engine='pyarrow')
-    
-    print(f"✅ Excel файл '{excel_filename}' создан с {num_rows} строками")
-    print(f"✅ Parquet файл '{parquet_filename}' создан")
+    for symbol in symbols:
+        data = generate_random_data(num_rows, symbol)
+        df = pd.DataFrame(data)
+        df.columns = ['time', 'ulid', 'symbol', 'state', 'tenor', 'valueDateNear', 
+                      'globalTradable', 'globalIndicative', 'rateId', 'tier', 'priceLevels']
 
-    # Загрузка в облако
-    if upload_enabled:
-        upload_to_cloud(excel_filename)
-        upload_to_cloud(parquet_filename)
+        excel_filename = f"test1_{today}_{file_number}.xlsx"
+        parquet_filename = f"database_{today}_{file_number}.parquet"
 
-    return excel_filename, parquet_filename, df
+        # Сохраняем Excel
+        with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='sheet1', index=False)
+            workbook = writer.book
+            worksheet = writer.sheets['sheet1']
+            column_widths = {
+                'A': 20, 'B': 30, 'C': 12, 'D': 8, 'E': 8, 'F': 20,
+                'G': 15, 'H': 18, 'I': 15, 'J': 10, 'K': 50
+            }
+            for col, width in column_widths.items():
+                worksheet.column_dimensions[col].width = width
+
+        # Сохраняем Parquet
+        df.to_parquet(parquet_filename, index=False, engine='pyarrow')
+
+        print(f"✅ Excel файл '{excel_filename}' создан с {num_rows} строками")
+        print(f"✅ Parquet файл '{parquet_filename}' создан")
+
+        # Загрузка в облако
+        if upload_enabled:
+            upload_to_cloud(excel_filename)
+            upload_to_cloud(parquet_filename)
+
+        return excel_filename, parquet_filename, df
 
 
 def create_consolidated_database(upload_enabled=True):
