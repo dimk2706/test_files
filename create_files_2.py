@@ -158,11 +158,11 @@ def get_next_file_number(base_name="test1", extension="xlsx"):
 def create_data_files(num_rows=10, upload_enabled=True):
     """Создаёт Excel и Parquet файлы и (опционально) загружает их в облако"""
     
-    file_number = get_next_file_number()
     today = datetime.now().strftime("%Y-%m-%d")
-    symbols = ['CNY/RUB', 'USD/RUB', 'EUR/RUB', 'GBP/RUB', 'JPY/RUB']
+    symbols = ['CNY/RUB', 'USD/RUB', 'EUR/RUB', 'INR/RUB']
 
     for symbol in symbols:
+        file_number = get_next_file_number()
         data = generate_random_data(num_rows, symbol)
         df = pd.DataFrame(data)
         df.columns = ['time', 'ulid', 'symbol', 'state', 'tenor', 'valueDateNear', 
